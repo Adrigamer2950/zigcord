@@ -1,0 +1,20 @@
+.{
+    .name = .zigcord,
+    .version = "0.0.0",
+    .fingerprint = 0xec53cf1146975175,
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        .websocket = .{
+            .url = "git+https://github.com/karlseguin/websocket.zig?ref=master#b70e733bc0d0ba0a98ff5fe5ef64d3017c85f369",
+            .hash = "websocket-0.1.0-ZPISdUoQBQC7zw1uSwbOEYdxZiTxNN4nf9RlWBsN0_Nd",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        // For example...
+        //"LICENSE",
+        //"README.md",
+    },
+}
