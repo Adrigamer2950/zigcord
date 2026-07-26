@@ -128,15 +128,10 @@ pub fn GatewayClient(comptime Dispatcher: type) type {
                                 .arena = &packet_arena,
                             };
 
-                            var string: std.Io.Writer.Allocating = .init(packet_arena.allocator());
-                            defer string.deinit();
+                            const json = zigcord.Util.stringify(packet_arena.allocator(), identify.data.identify);
+                            defer packet_arena.allocator().free(json);
 
-                            string.writer.print("{f}", .{std.json.fmt(identify.data.identify, .{})}) catch |err| {
-                                log.err("{any}", .{err});
-                                continue;
-                            };
-
-                            self.ws_client.addOutboundPacket(string.written()) catch |err| {
+                            self.ws_client.addOutboundPacket(json) catch |err| {
                                 log.err("error trying to add outbound packet to queue: {any}", .{err});
                             };
                         },

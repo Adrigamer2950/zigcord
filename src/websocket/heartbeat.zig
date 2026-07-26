@@ -31,15 +31,13 @@ fn force_send_heartbeat(self: *Heartbeat, alloc: std.mem.Allocator, client: *web
     self.last_heartbeat_timestamp = now;
     self.received_heartbeat_ack = false;
 
-    var string: std.Io.Writer.Allocating = .init(alloc);
-    defer string.deinit();
-
-    try string.writer.print("{f}", .{std.json.fmt(message, .{})});
+    const json = zigcord.Util.stringify(alloc, message);
+    defer alloc.free(json);
 
     if (should_send_debug)
         log.debug("sending heartbeat with index {d}", .{self.last_heartbeat_counter});
 
-    try client.write(string.written());
+    try client.write(json);
 }
 
 pub fn acknowledge_heartbeat_ack(self: *Heartbeat) void {
