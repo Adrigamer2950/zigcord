@@ -48,6 +48,11 @@ pub fn GatewayClient(comptime Dispatcher: type) type {
                 defer self.allocator.free(packets);
 
                 for (packets) |raw_data| {
+                    if (std.mem.eql(u8, raw_data, zigcord.Ws.CLOSE_PACKET_SIGNAL)) {
+                        self.shutdown();
+                        break;
+                    }
+
                     const data = std.json.parseFromSlice(
                         std.json.Value,
                         self.allocator,

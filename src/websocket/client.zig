@@ -183,6 +183,9 @@ pub fn messageLoop(self: *WsClient) !void {
     }
 
     log.debug("closing websocket connection", .{});
+
+    try self.addInboundPacket(root.CLOSE_PACKET_SIGNAL);
+
     try self.client.close(.{
         .code = 1000,
     });
