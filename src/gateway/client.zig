@@ -119,11 +119,6 @@ fn threadLoop(self: *@This()) !void {
                     const token = std.mem.replaceOwned(u8, packet_arena.allocator(), self.token, "\n", "") catch @panic("OOM");
                     defer packet_arena.allocator().free(token);
 
-                    var intents: root.Intents = .{};
-                    intents.addIntent(.message_content);
-                    intents.addIntent(.guild_messages);
-                    intents.addIntent(.guild_members);
-
                     const identify: root.Messages.Packet = .{
                         .data = .{ .identify = .{
                             .op = .identify,
@@ -134,7 +129,7 @@ fn threadLoop(self: *@This()) !void {
                                     .library = "zigcord",
                                     .device = "zigcord",
                                 },
-                                .intents = intents,
+                                .intents = self.intents,
                             },
                         } },
                         .arena = &packet_arena,
