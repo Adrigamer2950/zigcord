@@ -1,6 +1,6 @@
 loop_should_continue: std.atomic.Value(bool) = .init(true),
 
-allocator: std.mem.Allocator,
+arena: *std.heap.ArenaAllocator,
 io: std.Io,
 client: *websocket.Client,
 handshake_host: []const u8,
@@ -19,7 +19,7 @@ outbound_packets_mutex: std.Io.Mutex = .init,
 outbound_packets: std.ArrayList([]const u8) = .empty,
 
 pub const WsClientOptions = struct {
-    allocator: std.mem.Allocator,
+    arena: *std.heap.ArenaAllocator,
     io: std.Io,
     host: []const u8,
     port: u16 = 443,
@@ -38,21 +38,21 @@ pub const WsClientDebugOptions = struct {
 };
 
 pub fn init(opts: WsClientOptions) !WsClient {
-    const client = try opts.allocator.create(websocket.Client);
-    errdefer opts.allocator.destroy(client);
+    const client = try opts.arena.allocator().create(websocket.Client);
+    errdefer opts.arena.allocator().destroy(client);
 
-    client.* = try websocket.Client.init(opts.io, opts.allocator, .{
+    client.* = try websocket.Client.init(opts.io, opts.arena.allocator(), .{
         .host = opts.host,
         .port = opts.port,
         .tls = true,
     });
 
-    const heartbeat = try opts.allocator.create(root.Heartbeat);
-    errdefer opts.allocator.destroy(heartbeat);
+    const heartbeat = opts.arena.allocator().create(root.Heartbeat) catch @panic("OOM");
+    errdefer opts.arena.allocator().destroy(heartbeat);
     heartbeat.* = .init(std.Io.Timestamp.now(opts.io, std.Io.Clock.real).toMilliseconds());
 
     return .{
-        .allocator = opts.allocator,
+        .arena = opts.arena,
         .io = opts.io,
         .client = client,
         .handshake_host = opts.host,
@@ -69,17 +69,17 @@ pub fn init(opts: WsClientOptions) !WsClient {
 pub fn deinit(self: *WsClient) void {
     self.shutdown();
     self.client.deinit();
-    self.allocator.destroy(self.client);
-    self.allocator.destroy(self.heartbeat);
+    self.arena.allocator().destroy(self.client);
+    self.arena.allocator().destroy(self.heartbeat);
 }
 
 pub fn addInboundPacket(self: *@This(), raw_data: []const u8) !void {
-    const owned_raw_data = self.allocator.dupe(u8, raw_data) catch @panic("OOM");
+    const owned_raw_data = self.arena.allocator().dupe(u8, raw_data) catch @panic("OOM");
 
     try self.inbound_packets_mutex.lock(self.io);
     defer self.inbound_packets_mutex.unlock(self.io);
 
-    self.inbound_packets.append(self.allocator, owned_raw_data) catch @panic("OOM");
+    self.inbound_packets.append(self.arena.allocator(), owned_raw_data) catch @panic("OOM");
 }
 
 pub fn getAndDropInboundPackets(self: *@This(), allocator: std.mem.Allocator) ![][]const u8 {
@@ -87,26 +87,26 @@ pub fn getAndDropInboundPackets(self: *@This(), allocator: std.mem.Allocator) ![
     defer self.inbound_packets_mutex.unlock(self.io);
 
     const items = allocator.dupe([]const u8, self.inbound_packets.items) catch @panic("OOM");
-    self.inbound_packets.clearAndFree(self.allocator);
+    self.inbound_packets.clearAndFree(self.arena.allocator());
 
     return items;
 }
 
 pub fn addOutboundPacket(self: *@This(), raw_data: []const u8) !void {
-    const owned = self.allocator.dupe(u8, raw_data) catch @panic("OOM");
+    const owned = self.arena.allocator().dupe(u8, raw_data) catch @panic("OOM");
 
     try self.outbound_packets_mutex.lock(self.io);
     defer self.outbound_packets_mutex.unlock(self.io);
 
-    self.outbound_packets.append(self.allocator, owned) catch @panic("OOM");
+    self.outbound_packets.append(self.arena.allocator(), owned) catch @panic("OOM");
 }
 
 pub fn getAndDropOutboundPackets(self: *@This()) ![][]const u8 {
     try self.outbound_packets_mutex.lock(self.io);
     defer self.outbound_packets_mutex.unlock(self.io);
 
-    const items = self.allocator.dupe([]const u8, self.outbound_packets.items) catch @panic("OOM");
-    self.outbound_packets.clearAndFree(self.allocator);
+    const items = self.arena.allocator().dupe([]const u8, self.outbound_packets.items) catch @panic("OOM");
+    self.outbound_packets.clearAndFree(self.arena.allocator());
 
     return items;
 }
@@ -116,12 +116,12 @@ pub fn acknowledge_heartbeat_ack(self: *WsClient) void {
 }
 
 pub fn handle_inbound_heartbeat(self: *WsClient) !void {
-    try self.heartbeat.handle_inbound_heartbeat(self.allocator, self.io, self.client, self.debug_options.sent_heartbeats);
+    try self.heartbeat.handle_inbound_heartbeat(self.arena.allocator(), self.io, self.client, self.debug_options.sent_heartbeats);
 }
 
 pub fn sendHandshake(self: *WsClient) !void {
-    const headers = std.fmt.allocPrint(self.allocator, "Host: {s}\r\n{s}", .{ self.handshake_host, self.handshake_headers }) catch @panic("OOM");
-    defer self.allocator.free(headers);
+    const headers = std.fmt.allocPrint(self.arena.allocator(), "Host: {s}\r\n{s}", .{ self.handshake_host, self.handshake_headers }) catch @panic("OOM");
+    defer self.arena.allocator().free(headers);
 
     try self.client.handshake(self.handshake_path, .{
         .timeout_ms = self.handshake_timeout_ms,
@@ -147,10 +147,10 @@ pub fn messageLoop(self: *WsClient) !void {
             break;
         }
 
-        try self.heartbeat.check_and_send_heartbeat(self.allocator, self.client, now.toMilliseconds(), self.debug_options.sent_heartbeats);
+        try self.heartbeat.check_and_send_heartbeat(self.arena.allocator(), self.client, now.toMilliseconds(), self.debug_options.sent_heartbeats);
 
         const outbound_packets = try self.getAndDropOutboundPackets();
-        defer self.allocator.free(outbound_packets);
+        defer self.arena.allocator().free(outbound_packets);
 
         for (outbound_packets) |raw_data| {
             if (self.debug_options.sent_outbound_messages)

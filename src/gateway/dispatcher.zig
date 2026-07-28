@@ -1,22 +1,23 @@
-pub fn Dispatcher(comptime listeners: []const type) type {
-    return struct {
-        pub fn fireEvent(_: @This(), Event: type, data: Event) void {
-            inline for (listeners) |ns| {
-                inline for (comptime std.meta.declarations(ns)) |decl| {
-                    const field = @field(ns, decl.name);
+ready: ?*const fn (event: root.Events.Ready) void = null,
+message_create: ?*const fn (event: root.Events.MessageCreate) void = null,
 
-                    const info = @typeInfo(@TypeOf(field));
-                    const fn_info = info.@"fn";
+pub fn fireEvent(self: Dispatcher, Event: type, data: Event) void {
+    inline for (@typeInfo(Dispatcher).@"struct".fields) |field| {
+        const FieldType = field.type;
+        const @"fn" = @typeInfo(FieldType).optional.child;
+        const child = @typeInfo(@"fn").pointer.child;
+        const params = @typeInfo(child).@"fn".params;
 
-                    if (fn_info.params.len != 1) continue;
-                    if (fn_info.params[0].type != Event) continue;
+        if (params.len != 1) continue;
+        if (params[0].type != Event) continue;
 
-                    field(data);
-                }
-            }
+        if (@field(self, field.name)) |callback| {
+            @call(.auto, callback, .{data});
         }
-    };
+    }
 }
+
+pub const Dispatcher = @This();
 
 pub fn parseDispatch(alloc: std.mem.Allocator, t_str: []const u8, d: std.json.Value) !root.Messages.DispatchEvent {
     const Tag = std.meta.FieldEnum(root.Messages.DispatchEvent);
@@ -68,5 +69,6 @@ fn logMissingFields(comptime T: type, value: std.json.Value, path: []const u8) v
     }
 }
 
+const zigcord = @import("zigcord");
 const root = @import("root.zig");
 const std = @import("std");

@@ -1,10 +1,5 @@
-pub const EVENT_LISTENERS: []const type = &.{@import("events/example.zig")};
-const DispatcherType = gateway.Dispatch.Dispatcher(EVENT_LISTENERS);
-
-const GatewayType = gateway.GatewayClient(DispatcherType);
-
 var ws_client: ws.WsClient = undefined;
-var gateway_client: GatewayType = undefined;
+var gateway_client: gateway.GatewayClient = undefined;
 
 fn handleSigint(_: c_int) callconv(.c) void {
     ws_client.shutdown();
@@ -28,8 +23,6 @@ pub fn main(init: std.process.Init) !void {
 
     try ws_client.sendHandshake();
 
-    var dispatcher: DispatcherType = .{};
-
     var intents: gateway.Intents = .init;
     intents.addIntent(.guild_messages);
     intents.addIntent(.message_content);
@@ -43,10 +36,7 @@ pub fn main(init: std.process.Init) !void {
         .io = init.io,
         .token = @embedFile("token.txt"),
         .intents = intents,
-        .dispatcher = &dispatcher,
-        .debug_options = .{
-            .received_inbound_messages = false,
-        },
+        .dispatcher = example_listener.DISPATCHER,
     });
 
     const act = std.posix.Sigaction{
@@ -64,6 +54,7 @@ pub fn main(init: std.process.Init) !void {
     gateway_client.join();
 }
 
+const example_listener = @import("events/example.zig");
 const zigcord = @import("zigcord");
 const ws = zigcord.Ws;
 const gateway = zigcord.Gateway;
