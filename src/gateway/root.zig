@@ -6,10 +6,22 @@ pub const Dispatcher = @import("dispatcher.zig");
 pub const Intents = struct {
     bits: u64 = 0,
 
-    pub const init: Intents = .{};
+    pub fn init(bits: []const Bits) Intents {
+        var intents: Intents = .{};
+
+        intents.addIntents(bits);
+
+        return intents;
+    }
 
     pub fn addIntent(self: *Intents, intent: Bits) void {
         self.bits = self.bits | @intFromEnum(intent);
+    }
+
+    pub fn addIntents(self: *Intents, intents: []const Bits) void {
+        for (intents) |intent| {
+            self.addIntent(intent);
+        }
     }
 
     pub fn jsonStringify(self: Intents, jw: anytype) !void {
