@@ -1,18 +1,22 @@
-ready: ?*const fn (event: root.Events.Ready) void = null,
-message_create: ?*const fn (event: root.Events.MessageCreate) void = null,
+ready: ?*const fn (event: root.Events.Ready, client: *zigcord.Client) void = null,
+message_create: ?*const fn (event: root.Events.MessageCreate, client: *zigcord.Client) void = null,
+
+client: ?*anyopaque = null,
 
 pub fn fireEvent(self: Dispatcher, Event: type, data: Event) void {
     inline for (@typeInfo(Dispatcher).@"struct".fields) |field| {
+        if (comptime std.mem.eql(u8, field.name, "client")) continue;
+
         const FieldType = field.type;
         const @"fn" = @typeInfo(FieldType).optional.child;
         const child = @typeInfo(@"fn").pointer.child;
         const params = @typeInfo(child).@"fn".params;
 
-        if (params.len != 1) continue;
+        if (params.len != 2) continue;
         if (params[0].type != Event) continue;
 
         if (@field(self, field.name)) |callback| {
-            @call(.auto, callback, .{data});
+            @call(.auto, callback, .{ data, @as(*zigcord.Client, @ptrCast(@alignCast(self.client.?))) });
         }
     }
 }

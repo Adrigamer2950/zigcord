@@ -20,7 +20,7 @@ type: MessageType,
 // TODO: application,
 application_id: []const u8 = "",
 flags: u32 = 0,
-// TODO: message_reference,
+message_reference: MessageReference,
 // TODO: message_snapshots,
 // TODO: referenced_message: ?Message,
 // TODO: interaction_metadata,
@@ -74,6 +74,21 @@ pub const MessageType = enum(u8) {
     GUILD_INCIDENT_REPORT_FALSE_ALARM = 39,
     PURCHASE_NOTIFICATION = 44,
     POLL_RESULT = 46,
+};
+
+pub const MessageReference = struct {
+    type: enum(u1) {
+        DEFAULT = 0,
+        FORWARD = 1,
+
+        pub fn jsonStringify(self: @This(), jw: anytype) !void {
+            try jw.write(@intFromEnum(self));
+        }
+    } = .DEFAULT,
+    message_id: ?[]const u8 = null,
+    channel_id: ?[]const u8 = null,
+    guild_id: ?[]const u8 = null,
+    fail_if_not_exists: bool = false,
 };
 
 const Message = @This();

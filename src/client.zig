@@ -109,6 +109,8 @@ pub fn deinit(self: *@This()) void {
 }
 
 pub fn start(self: *@This()) !void {
+    self.gateway.dispatcher.client = self;
+
     try self.ws.sendHandshake();
 
     try self.gateway.spawnThread();
