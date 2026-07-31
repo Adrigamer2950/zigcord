@@ -1,4 +1,4 @@
-pub const GatewayClient = @import("client.zig").GatewayClient;
+pub const GatewayClient = @import("client.zig");
 pub const Messages = @import("messages.zig");
 pub const Events = @import("events.zig");
 pub const Dispatcher = @import("dispatcher.zig");

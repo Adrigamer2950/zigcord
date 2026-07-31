@@ -18,8 +18,9 @@ pub const Opcodes = enum(usize) {
     }
 };
 
-pub const Client = @import("client.zig");
 pub const Util = @import("util.zig");
 pub const Gateway = @import("gateway/root.zig");
 pub const Ws = @import("websocket/root.zig");
 pub const Structs = @import("structs/root.zig");
+pub const Client = @import("client.zig");
+pub const Rest = @import("rest/root.zig");

@@ -6,6 +6,9 @@ gateway_is_owned: bool,
 ws: *root.Ws.WsClient,
 ws_is_owned: bool,
 
+rest: *root.Rest.RestClient,
+rest_is_owned: bool,
+
 pub const ClientOptions = union(enum) {
     create: struct {
         allocator: std.mem.Allocator,
@@ -20,6 +23,7 @@ pub const ClientOptions = union(enum) {
     existing: struct {
         gateway: *root.Gateway.GatewayClient,
         ws: *root.Ws.WsClient,
+        rest: *root.Rest.RestClient,
     },
 };
 
@@ -64,6 +68,22 @@ pub fn init(opts: ClientOptions) !@This() {
                 .debug_options = create.gateway_debug_options,
             });
 
+            const rest_arena = create.allocator.create(std.heap.ArenaAllocator) catch @panic("OOM");
+            errdefer create.allocator.destroy(rest_arena);
+
+            rest_arena.* = std.heap.ArenaAllocator.init(create.allocator);
+            errdefer rest_arena.deinit();
+
+            const rest_client = create.allocator.create(root.Rest.RestClient) catch @panic("OOM");
+            errdefer create.allocator.destroy(rest_client);
+
+            rest_client.* = .init(.{
+                .arena = rest_arena,
+                .io = create.io,
+                .token = create.token,
+            });
+            errdefer rest_client.deinit();
+
             return .{
                 .allocator = create.allocator,
 
@@ -72,6 +92,9 @@ pub fn init(opts: ClientOptions) !@This() {
 
                 .ws = ws_client,
                 .ws_is_owned = true,
+
+                .rest = rest_client,
+                .rest_is_owned = true,
             };
         },
         .existing => |existing| {
@@ -81,6 +104,9 @@ pub fn init(opts: ClientOptions) !@This() {
 
                 .ws = existing.ws,
                 .ws_is_owned = false,
+
+                .rest = existing.rest,
+                .rest_is_owned = false,
             };
         },
     }
@@ -105,6 +131,13 @@ pub fn deinit(self: *@This()) void {
         self.ws.arena.deinit();
         self.allocator.?.destroy(self.ws.arena);
         self.allocator.?.destroy(self.ws);
+    }
+
+    if (self.rest_is_owned) {
+        self.rest.deinit();
+        self.rest.arena.deinit();
+        self.allocator.?.destroy(self.rest.arena);
+        self.allocator.?.destroy(self.rest);
     }
 }
 
