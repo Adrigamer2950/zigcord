@@ -105,11 +105,7 @@ pub fn request(
         try body.appendSlice(req_arena.allocator(), read_buf[0..n]);
     }
 
-    std.log.debug("status: {any}", .{response.head.status});
-
-    const wants_body = ReturnType != void;
-
-    if (wants_body) {
+    if (ReturnType != void) {
         return parseJson(ReturnType, self.arena.allocator(), body.items);
     }
 }

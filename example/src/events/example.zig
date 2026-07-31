@@ -7,7 +7,7 @@ pub fn ready(data: zigcord.Gateway.Events.Ready, _: *zigcord.Client) void {
     log.info("ready as {s} ({s})", .{ data.user.username, data.user.id });
 }
 
-pub fn messageCreate(msg: zigcord.Gateway.Events.MessageCreate, client: *zigcord.Client) void {
+pub fn messageCreate(msg: zigcord.Gateway.Events.MessageCreate, _: *zigcord.Client) void {
     log.info("message id: {s}", .{msg.id});
     log.info("message content: {s}", .{msg.content});
 }
